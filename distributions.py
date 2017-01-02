@@ -24,6 +24,7 @@ TO-DO:
 - we should pass parametrs and expectations to Distribution() and perform sanity checks there
 - Improve initialisation of Multivariate Gaussian
 - Sanity checks on setter and getter functions
+- Need to ake it work properly for a single distirbution
 """
 
 # General class for probability distributions
@@ -120,20 +121,22 @@ class MultivariateGaussian(Distribution):
         # If 'mean' is a scalar, broadcast it to all dimensions
         if isinstance(mean,(int,float)): mean = s.ones( (dim[0],dim[1]) ) * mean
         # If 'mean' has dim (D,) and we have N distributions, broadcast it to all N distributions
-        if len(mean.shape)==1 and mean.shape[0]==dim[0]: mean = s.repeat(mean,N,0)
+        #followig line does not turn (D,) mean into (D,1)
+        if len(mean.shape)==1 and mean.shape[0]==dim[1]: mean = s.repeat(mean,dim[0],0)
+
         assert sum(mean.shape) > 2, "The mean has to be a matrix with shape (N,D) "
 
         # Initialise the covariance
         # If 'cov' is a matrix and not a tensor, broadcast it along the zeroth axis
-        if len(cov.shape) == 2: cov = s.repeat(cov[None,:,:],dim[0],0)
-        assert (cov.shape[1]==cov.shape[2]) and (sum(cov.shape[1:])>1), "The covariance has to be a tensor with shape (N,D,D)"
+        #if len(cov.shape) == 2: cov = s.repeat(cov[None,:,:],dim[0],0)
+        #assert (cov.shape[1]==cov.shape[2]) and (sum(cov.shape[1:])>1), "The covariance has to be a tensor with shape (N,D,D)"
 
         # Check that the dimensionalities of 'mean' and 'cov' match
-        assert cov.shape[1] == mean.shape[1] == dim[1], "Error in the dimensionalities"
-        assert cov.shape[0] == mean.shape[0] == dim[0], "Error in the dimensionalities"
+        if(dim[0]!=1):
+            assert cov.shape[1] == mean.shape[1] == dim[1], "Error in the dimensionalities"
+            assert cov.shape[0] == mean.shape[0] == dim[0], "Error in the dimensionalities"
 
         self.params = {'mean':mean, 'cov':cov }
-
         # Initialise expectations
         if E is None:
             self.updateExpectations()
@@ -145,15 +148,15 @@ class MultivariateGaussian(Distribution):
 
     def updateExpectations(self):
         # Update first and second moments using current parameters
-        E = self.mean
+        E = self.params['mean']
 
-        # self.E2 = s.empty( (self.dim[0],self.dim[1],self.dim[1]) )
-        # for i in xrange(self.dim[0]):
-        #     self.E2[i,:,:] = s.outer(self.E[i,:],self.E[i,:]) + self.cov[i,:,:]
-
-        E2 = self.params['cov'].copy()
-        for i in xrange(self.dim[0]):
-            E2[i,:,:] += s.outer(E[i,:],E[i,:])
+        if self.dim[0]==1:
+            E2 = self.params['cov'].copy()
+            E2 += s.outer(E,E)
+        else:    
+            E2 = self.params['cov'].copy()
+            for i in xrange(self.dim[0]):
+                E2[i,:,:] += s.outer(E[i,:],E[i,:])
 
         self.expectations = {'E':E, 'E2':E2}
 
