@@ -3,7 +3,8 @@ import scipy as s
 import numpy.ma as ma
 
 from variational_nodes import Unobserved_Variational_Node
-from utils import sigmoid
+from nodes import Node,Constant_Node
+from utils import sigmoid, lambdafn
 
 """
 Module to define updates for non-conjugate matrix factorisation models using the Seeger approach
@@ -194,29 +195,30 @@ class Bernoulli_PseudoY_Node(PseudoY):
         lik = s.sum( self.obs*tmp - s.log(1+s.exp(tmp)) )
         return lik
 
-class Bernoulli_PseudoY_Node_Jaakola(PseuoY):
-	"""
+
+class Bernoulli_PseudoY_Node_Jaakola(PseudoY):
+    """
     Class for a Bernoulli (0,1 data) pseudodata node with the following likelihood:
         p(y|x) = (e^{yx}) / (1+e^x) 
     Following Jaakola et al and intterpreting the bound as a liklihood on gaussian pseudodata
     leads to the folllowing updates
 
-	Pseudodata is given by
-			yhat_ij = (2*y_ij-1)/(4*lambadfn(xi_ij))
-		where lambdafn(x)= tanh(x/2)/(4*x).
-	
-	Its conditional distribution is given by 
-			N((ZW)_ij, 1/(2 lambadfn(xi_ij)))		
-	
-	Updates for the variational parameter xi_ij are given by
-			sqrt(E((ZW)_ij^2))
+    Pseudodata is given by
+    		yhat_ij = (2*y_ij-1)/(4*lambadfn(xi_ij))
+    	where lambdafn(x)= tanh(x/2)/(4*x).
 
-	xi_ij in above notation is the same as zeta (variational parameter)			
+    Its conditional distribution is given by 
+    		N((ZW)_ij, 1/(2 lambadfn(xi_ij)))		
 
-	NOTE: For this class to work the noise variance tau needs to be updated according to 
-		tau_ij <- 2*lambadfn(xi_ij)
+    Updates for the variational parameter xi_ij are given by
+    		sqrt(E((ZW)_ij^2))
+
+    xi_ij in above notation is the same as zeta (variational parameter)			
+
+    NOTE: For this class to work the noise variance tau needs to be updated according to 
+    	tau_ij <- 2*lambadfn(xi_ij)
     """
-        def __init__(self, dim, obs, Zeta=None, E=None):
+    def __init__(self, dim, obs, Zeta=None, E=None):
         # - dim (2d tuple): dimensionality of each view
         # - obs (ndarray): observed data
         # - E (ndarray): initial expected value of pseudodata
@@ -225,19 +227,16 @@ class Bernoulli_PseudoY_Node_Jaakola(PseuoY):
         # Initialise the observed data
         assert s.all( (self.obs==0) | (self.obs==1) ), "Data must be binary"
 
-    def lambdafn(self, X):
-    	return s.tanh(X/2)/(4*X)
-
     def updateExpectations(self):
         # Update the pseudodata
         self.E = (2* self.obs - 1)/(4* lambdafn(self.Zeta))
 
     def updateParameters(self):
-    	#should over-write the PseudoY update
+        #should over-write the PseudoY update
         Z = self.markov_blanket["Z"].getExpectation()
         W = self.markov_blanket["W"].getExpectation()
-        Z2 = self.markov_blanket["Z"].getExpectations()[‘E2’]
-        W2 = self.markov_blanket["W"].getExpectations()[‘E2’]
+        Z2 = self.markov_blanket["Z"].getExpectations()["E2"]
+        W2 = self.markov_blanket["W"].getExpectations()["E2"]
         self.Zeta = s.sqrt(s.square(Z.dot(W.T)) - s.dot(s.square(Z), s.square(W.T)) + s.dot(Z2, W2.T))
 
     def calculateELBO(self):
@@ -247,6 +246,28 @@ class Bernoulli_PseudoY_Node_Jaakola(PseuoY):
         tmp = s.dot(Z,W.T)
         lik = s.sum( self.obs*tmp - s.log(1+s.exp(tmp)) )
         return lik
+
+class Tau_Jaakola(Node):
+    def __init__(self, dim, value):
+        Node.__init__(self, dim=dim)
+        if isinstance(value,(int,float)):
+            self.value = value * s.ones(dim)
+        else:
+            assert value.shape == dim, "dimensionality mismatch"
+            self.value = value
+    def updateExpectations(self):
+        Z = self.markov_blanket["Z"].getExpectation()
+        W = self.markov_blanket["W"].getExpectation()
+        self.value = 2*lambdafn(s.dot(Z,W.T))
+
+    def getValue(self):
+        return self.value
+
+    def getExpectation(self):
+        return self.getValue()
+        
+    def getExpectations(self):
+        return { 'E':self.getValue() }
 
 class Binomial_PseudoY_Node(PseudoY):
     """
