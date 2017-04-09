@@ -2,7 +2,7 @@ from __future__ import division
 import scipy as s
 import numpy.ma as ma
 
-from variational_nodes import Unobserved_Variational_Node
+from variational_nodes import *
 from nodes import Node,Constant_Node
 from utils import sigmoid, lambdafn
 
@@ -194,81 +194,6 @@ class Bernoulli_PseudoY_Node(PseudoY):
         tmp = s.dot(Z,W.T)
         lik = s.sum( self.obs*tmp - s.log(1+s.exp(tmp)) )
         return lik
-
-
-class Bernoulli_PseudoY_Node_Jaakola(PseudoY):
-    """
-    Class for a Bernoulli (0,1 data) pseudodata node with the following likelihood:
-        p(y|x) = (e^{yx}) / (1+e^x) 
-    Following Jaakola et al and intterpreting the bound as a liklihood on gaussian pseudodata
-    leads to the folllowing updates
-
-    Pseudodata is given by
-    		yhat_ij = (2*y_ij-1)/(4*lambadfn(xi_ij))
-    	where lambdafn(x)= tanh(x/2)/(4*x).
-
-    Its conditional distribution is given by 
-    		N((ZW)_ij, 1/(2 lambadfn(xi_ij)))		
-
-    Updates for the variational parameter xi_ij are given by
-    		sqrt(E((ZW)_ij^2))
-
-    xi_ij in above notation is the same as zeta (variational parameter)			
-
-    NOTE: For this class to work the noise variance tau needs to be updated according to 
-    	tau_ij <- 2*lambadfn(xi_ij)
-    """
-    def __init__(self, dim, obs, Zeta=None, E=None):
-        # - dim (2d tuple): dimensionality of each view
-        # - obs (ndarray): observed data
-        # - E (ndarray): initial expected value of pseudodata
-        PseudoY.__init__(self, dim=dim, obs=obs, Zeta=Zeta, E=E)
-
-        # Initialise the observed data
-        assert s.all( (self.obs==0) | (self.obs==1) ), "Data must be binary"
-
-    def updateExpectations(self):
-        # Update the pseudodata
-        self.E = (2* self.obs - 1)/(4* lambdafn(self.Zeta))
-
-    def updateParameters(self):
-        #should over-write the PseudoY update
-        Z = self.markov_blanket["Z"].getExpectation()
-        W = self.markov_blanket["W"].getExpectation()
-        Z2 = self.markov_blanket["Z"].getExpectations()["E2"]
-        W2 = self.markov_blanket["W"].getExpectations()["E2"]
-        self.Zeta = s.sqrt(s.square(Z.dot(W.T)) - s.dot(s.square(Z), s.square(W.T)) + s.dot(Z2, W2.T))
-
-    def calculateELBO(self):
-        # Compute Lower Bound using the Bernoulli likelihood with observed data
-        Z = self.markov_blanket["Z"].getExpectation()
-        W = self.markov_blanket["W"].getExpectation()
-        tmp = s.dot(Z,W.T)
-        lik = s.sum( self.obs*tmp - s.log(1+s.exp(tmp)) )
-        return lik
-
-class Tau_Jaakola(Node):
-    def __init__(self, dim, value):
-        Node.__init__(self, dim=dim)
-        if isinstance(value,(int,float)):
-            self.value = value * s.ones(dim)
-        else:
-            assert value.shape == dim, "dimensionality mismatch"
-            self.value = value
-    def updateExpectations(self):
-        Z = self.markov_blanket["Z"].getExpectation()
-        W = self.markov_blanket["W"].getExpectation()
-        self.value = 2*lambdafn(s.dot(Z,W.T))
-
-    def getValue(self):
-        return self.value
-
-    def getExpectation(self):
-        return self.getValue()
-        
-    def getExpectations(self):
-        return { 'E':self.getValue() }
-
 class Binomial_PseudoY_Node(PseudoY):
     """
     Class for a Binomial pseudodata node with the following likelihood:
@@ -321,3 +246,277 @@ class Binomial_PseudoY_Node(PseudoY):
         lik = s.log(s.special.binom(self.tot,self.obs)).sum() + s.sum(self.obs*s.log(tmp)) + \
             s.sum((self.tot-self.obs)*s.log(1-tmp))
         return lik
+
+
+
+## Jakkola ##
+
+
+class Bernoulli_PseudoY_Node_Jaakkola(PseudoY):
+    """
+    Class for a Bernoulli (0,1 data) pseudodata node with the following likelihood:
+        p(y|x) = (e^{yx}) / (1+e^x) 
+    Following Jaakola et al and intterpreting the bound as a liklihood on gaussian pseudodata
+    leads to the folllowing updates
+
+    Pseudodata is given by
+            yhat_ij = (2*y_ij-1)/(4*lambadfn(xi_ij))
+        where lambdafn(x)= tanh(x/2)/(4*x).
+    
+    Its conditional distribution is given by 
+            N((ZW)_ij, 1/(2 lambadfn(xi_ij)))       
+    
+    Updates for the variational parameter xi_ij are given by
+            sqrt(E((ZW)_ij^2))
+
+    xi_ij in above notation is the same as zeta (variational parameter)         
+
+    NOTE: For this class to work the noise variance tau needs to be updated according to 
+        tau_ij <- 2*lambadfn(xi_ij)
+    """
+    def __init__(self, dim, obs, Zeta=None, E=None):
+        # - dim (2d tuple): dimensionality of each view
+        # - obs (ndarray): observed data
+        # - E (ndarray): initial expected value of pseudodata
+        PseudoY.__init__(self, dim=dim, obs=obs, Zeta=Zeta, E=E)
+
+        # Initialise the observed data
+        assert s.all( (self.obs==0) | (self.obs==1) ), "Data must be binary"
+
+    def updateExpectations(self):
+        # Update the pseudodata
+        self.E = (2* self.obs - 1)/(4*lambdafn(self.Zeta))
+
+    def updateParameters(self):
+        #should over-write the PseudoY update
+        Z = self.markov_blanket["Z"].getExpectation()
+        W = self.markov_blanket["W"].getExpectation()
+        ZZ = self.markov_blanket["Z"].getExpectations()["E2"]
+        WW = self.markov_blanket["W"].getExpectations()["E2"]
+        self.Zeta = s.sqrt(s.square(Z.dot(W.T)) - s.dot(s.square(Z), s.square(W.T)) + s.dot(ZZ, WW.T))
+
+    def calculateELBO(self):
+        # Compute Lower Bound using the Bernoulli likelihood with observed data
+        Z = self.markov_blanket["Z"].getExpectation()
+        W = self.markov_blanket["W"].getExpectation()
+        tmp = s.dot(Z,W.T)
+        lik = s.sum( self.obs*tmp - s.log(1+s.exp(tmp)) )
+        return lik
+
+class Tau_Node_Jaakkola(Node):
+    def __init__(self, dim, value):
+        Node.__init__(self, dim=dim)
+        if isinstance(value,(int,float)):
+            self.value = value * s.ones(dim)
+        else:
+            assert value.shape == dim, "dimensionality mismatch"
+            self.value = value
+    def updateExpectations(self):
+        Z = self.markov_blanket["Z"].getExpectation()
+        W = self.markov_blanket["W"].getExpectation()
+        self.value = 2*lambdafn(s.dot(Z,W.T))
+
+    def getValue(self):
+        return self.value
+
+    def getExpectation(self):
+        return self.getValue()
+        
+    def getExpectations(self):
+        return { 'E':self.getValue() }
+
+
+class Z_Node_Jaakkola(UnivariateGaussian_Unobserved_Variational_Node):
+    def __init__(self, dim, pmean, pvar, qmean, qvar, qE=None, qE2=None, idx_covariates=None):
+        # UnivariateGaussian_Unobserved_Variational_Node.__init__(self, dim=dim, pmean=pmean, pvar=pvar, qmean=qmean, qvar=qvar, qE=qE)
+        super(Z_Node_Jaakkola,self).__init__(dim=dim, pmean=pmean, pvar=pvar, qmean=qmean, qvar=qvar, qE=qE, qE2=qE2)
+        self.precompute()
+
+        # Define indices for covariates
+        if idx_covariates is not None:
+            self.covariates[idx_covariates] = True
+
+    def precompute(self):
+        # Precompute terms to speed up computation
+        self.N = self.dim[0]
+        self.covariates = np.zeros(self.dim[1], dtype=bool)
+        self.factors_axis = 1
+
+    def getLvIndex(self):
+        # Method to return the index of the latent variables (without covariates)
+        latent_variables = np.array(range(self.dim[1]))
+        if any(self.covariates):
+            latent_variables = np.delete(latent_variables, latent_variables[self.covariates])
+        return latent_variables
+
+    def updateParameters(self):
+
+        # Collect expectations from the markov blanket
+        Y = self.markov_blanket["Y"].getExpectation()
+        SWtmp = self.markov_blanket["SW"].getExpectations()
+        tau = self.markov_blanket["Tau"].getExpectation()
+        Mu = self.markov_blanket['Cluster'].getExpectation()
+
+        # Collect parameters from the P and Q distributions of this node
+        P,Q = self.P.getParameters(), self.Q.getParameters()
+        Pvar, Qmean, Qvar = P['var'], Q['mean'], Q['var']
+
+        # Concatenate multi-view nodes to avoid looping over M (maybe its not a good idea)
+        M = len(Y)
+        Y = ma.concatenate([Y[m] for m in xrange(M)],axis=1)
+        SW = s.concatenate([SWtmp[m]["E"]for m in xrange(M)],axis=0)
+        SWW = s.concatenate([SWtmp[m]["ESWW"] for m in xrange(M)],axis=0)
+        tau = s.concatenate([tau[m] for m in xrange(M)],axis=0)
+
+
+        D = Y.shape[1]
+        K = SW.shape[0]
+        N = Y.shape[0]
+        for n in xrange(N):
+            for k in xrange(K):
+                # Variance
+                tmp = 0
+                for d in xrange(D):
+                    tmp += tau[d]*SWW[d,k]+tau[n,d]
+                Qvar[n,k] = 1/(tmp + 1)
+                # Mean
+                tmp = 0
+                for d in xrange(D):
+                    tmp += tau[n,d]*SW[d,k] * (Y[n,d] - s.sum(SW[d,s.arange(self.K)!=k]*Qmean[n,s.arange(self.K)!=k]))
+                Qmean[n,k] = Qvar[n,k]*tmp
+
+        # Save updated parameters of the Q distribution
+        self.Q.setParameters(mean=Qmean, var=Qvar)
+
+    def calculateELBO(self):
+        # Collect parameters and expectations of current node
+        Ppar,Qpar,Qexp = self.P.getParameters(), self.Q.getParameters(), self.Q.getExpectations()
+        Pvar, Qmean, Qvar = Ppar['var'], Qpar['mean'], Qpar['var']
+        PE, PE2 = self.markov_blanket['Cluster'].getExpectations()['E'], self.markov_blanket['Cluster'].getExpectations()['E2']
+        QE, QE2 = Qexp['E'],Qexp['E2']
+
+        # This ELBO term contains only cross entropy between Q and P,and entropy of Q. So the covariates should not intervene at all
+        latent_variables = self.getLvIndex()
+        Pvar, Qmean, Qvar = Pvar[:, latent_variables], Qmean[:, latent_variables], Qvar[:, latent_variables]
+        PE, PE2 = PE[:, latent_variables], PE2[:, latent_variables]
+        QE, QE2 = QE[:, latent_variables],QE2[:, latent_variables]
+
+        # compute term from the exponential in the Gaussian
+        tmp1 = 0.5*QE2 - PE*QE + 0.5*PE2
+        tmp1 = -(tmp1/Pvar).sum()
+
+        # compute term from the precision factor in front of the Gaussian
+        tmp2 = - (s.log(Pvar)/2.).sum()
+
+        lb_p = tmp1 + tmp2
+        lb_q = - (s.log(Qvar).sum() + self.N*self.dim[1])/2.
+
+        return lb_p-lb_q
+
+
+
+class SW_Node_Jaakkola(BernoulliGaussian_Unobserved_Variational_Node):
+    # def __init__(self, dim, pmean_S0, pmean_S1, pvar_S0, pvar_S1, ptheta, qmean_S0, qmean_S1, qvar_S0, qvar_S1, qtheta, qEW_S0=None, qEW_S1=None, qES=None):
+    def __init__(self, dim, pmean_S0, pmean_S1, pvar_S0, pvar_S1, ptheta, qmean_S0, qmean_S1, qvar_S0, qvar_S1, qtheta, qEW_S0=None, qEW_S1=None, qES=None):
+        super(SW_Node_Jaakkola,self).__init__(dim, pmean_S0, pmean_S1, pvar_S0, pvar_S1, ptheta, qmean_S0, qmean_S1, qvar_S0, qvar_S1, qtheta, qEW_S0, qEW_S1, qES)
+        # BernoulliGaussian_Unobserved_Variational_Node.__init__(self, dim, pmean_S0, pmean_S1, pvar_S0, pvar_S1, ptheta, qmean_S0, qmean_S1, qvar_S0, qvar_S1, qtheta, qEW_S0, qEW_S1, qES)
+        self.precompute()
+
+    def precompute(self):
+        self.D = self.dim[0]
+        # self.K = self.dim[1]
+        self.factors_axis = 1
+
+    def updateParameters(self):
+
+        # Collect expectations from other nodes
+        tmp = self.markov_blanket["Z"].getExpectations()
+        Z,ZZ = tmp["E"],tmp["E2"]
+        tau = self.markov_blanket["Tau"].getExpectation()
+        Y = self.markov_blanket["Y"].getExpectation()
+        alpha = self.markov_blanket["Alpha"].getExpectation()
+        SW = self.Q.getExpectations()["ESW"].copy()
+        Q = self.Q.getParameters()
+        Qmean_S1, Qvar_S1, Qtheta = Q['mean_S1'].copy(), Q['var_S1'].copy(), Q['theta'].copy()
+
+        thetatmp = self.markov_blanket['Theta'].getExpectations() # TODO make general in mixed nodw
+        theta_lnE, theta_lnEInv  = thetatmp['lnE'], thetatmp['lnEInv']  
+        if theta_lnE.shape != Qmean_S1.shape:
+            theta_lnE = s.repeat(theta_lnE[None,:],Qmean_S1.shape[0],0)
+        if theta_lnEInv.shape != Qmean_S1.shape:
+            theta_lnEInv = s.repeat(theta_lnEInv[None,:],Qmean_S1.shape[0],0)
+
+        all_term1 = theta_lnE - theta_lnEInv
+
+        for d in xrange(self.dim[0]):
+            for k in xrange(self.dim[1]):
+                term1 = all_term1[d,k]
+                term2 = 0.5*s.log(alpha[k])
+                term3 = 0
+                tmp = 0
+                for n in xrange(Y.shape[0]):
+                    tmp += ZZ[n,k]*tau[n,d]
+                term3 = -0.5*s.log(tmp) + alpha[k]
+                exit()
+
+                term4 = 0
+                term4_tmp1 = 0
+                for n in xrange(Y.shape[0]):
+                    if not s.isnan(Y.data[n,d]):
+                        term4_tmp1 += Y[n,d]*Z[n,k]*tau[n,d]
+                term4_tmp2 = 0
+                for j in xrange(self.dim[1]):
+                    if j!=k:
+                        for n in xrange(Y.shape[0]):
+                            if not s.isnan(Y.data[n,d]): 
+                                term4_tmp2 += SW[d,j]*Z[n,k]*Z[n,j]*tau[n,d]
+                foo = term4_tmp1 - term4_tmp2
+                term4_tmp3 = alpha[k]
+                for n in xrange(Y.shape[0]):
+                    term4_tmp3 += tau[n,d]*ZZ[n,k]
+                bar = s.sum(ZZ[:,k]) + alpha[k]/tau[d]
+                term4 = (term4_tmp1 - term4_tmp2)**2 / term4_tmp3
+
+                # Update S
+                Qtheta[d,k] = 1/(1+s.exp(-(term1+term2-term3+term4)))
+
+                # Update W
+                # Qmean_S1[d,k] = foo/bar
+                # Qvar_S1[d,k] = 1/(tau[d]*bar)
+
+                # Update expectations
+                # SW[d,k] = Qtheta[d,k] * Qmean_S1[d,k]
+
+        # Save updated parameters of the Q distribution
+        self.Q.setParameters(mean_S0=s.zeros((self.D,self.dim[1])), var_S0=s.repeat(1/alpha[None,:],self.D,0),
+                             mean_S1=Qmean_S1, var_S1=Qvar_S1, theta=Qtheta )
+
+    def calculateELBO(self):
+
+        # Collect parameters and expectations
+        Qpar,Qexp = self.Q.getParameters(), self.Q.getExpectations()
+        S,WW = Qexp["ES"], Qexp["EWW"]
+        Qvar = Qpar['var_S1']
+        alpha = self.markov_blanket["Alpha"].getExpectations()
+        theta = self.markov_blanket['Theta'].getExpectations()
+
+
+        # Calculate ELBO for W
+        lb_pw = (self.D*alpha["lnE"].sum() - s.sum(alpha["E"]*WW))/2
+        # lb_qw = -0.5*self.dim[1]*self.D - 0.5*s.log(S*Qvar + ((1-S)/alpha["E"])).sum()
+        lb_qw = -0.5*self.dim[1]*self.D - 0.5*(S*s.log(Qvar) + (1-S)*s.log(1/alpha["E"])).sum()
+        lb_w = lb_pw - lb_qw
+
+        # Calculate ELBO for S
+        lb_ps_tmp = S*theta['lnE'] + (1.-S)*theta['lnEInv']
+        lb_qs_tmp = S*s.log(S) + (1.-S)*s.log(1.-S)
+
+        # Ignore NAs
+        lb_ps_tmp[s.isnan(lb_ps_tmp)] = 0.
+        lb_qs_tmp[s.isnan(lb_qs_tmp)] = 0.
+
+        lb_ps = s.sum(lb_ps_tmp)
+        lb_qs = s.sum(lb_qs_tmp)
+        lb_s = lb_ps - lb_qs
+
+        return lb_w + lb_s
