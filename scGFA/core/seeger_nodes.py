@@ -433,6 +433,8 @@ class SW_Node_Jaakkola(BernoulliGaussian_Unobserved_Variational_Node):
         Q = self.Q.getParameters()
         Qmean_S1, Qvar_S1, Qtheta = Q['mean_S1'].copy(), Q['var_S1'].copy(), Q['theta'].copy()
 
+        print tau
+        
         thetatmp = self.markov_blanket['Theta'].getExpectations() # TODO make general in mixed nodw
         theta_lnE, theta_lnEInv  = thetatmp['lnE'], thetatmp['lnEInv']  
         if theta_lnE.shape != Qmean_S1.shape:
