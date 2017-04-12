@@ -29,8 +29,8 @@ from scGFA.run.run_utils import *
 
 # Define dimensionalities
 M = 3
-N = 50
-D = s.asarray([400,400,400])
+N = 25
+D = s.asarray([100,100,100])
 K = 6
 
 
@@ -60,7 +60,7 @@ data['tau']= [ stats.uniform.rvs(loc=0.1,scale=1,size=D[m]) for m in xrange(M) ]
 
 missingness = 0.0
 # Y_gaussian = tmp.generateData(W=data['W'], Z=data['Z'], Tau=data['tau'], Mu=data['mu'],
-# 	likelihood="gaussian", missingness=missingness)
+	# likelihood="gaussian", missingness=missingness)
 # Y_poisson = tmp.generateData(W=data['W'], Z=data['Z'], Tau=data['tau'], Mu=data['mu'],
 # 	likelihood="poisson", missingness=missingness)
 Y_bernoulli = tmp.generateData(W=data['W'], Z=data['Z'], Tau=data['tau'], Mu=data['mu'],
@@ -69,7 +69,7 @@ Y_bernoulli = tmp.generateData(W=data['W'], Z=data['Z'], Tau=data['tau'], Mu=dat
 # 	likelihood="binomial", min_trials=10, max_trials=50, missingness=missingness)
 
 data["Y"] = ( Y_bernoulli[0], Y_bernoulli[1], Y_bernoulli[2] )
-
+# data["Y"] = ( Y_gaussian[0], Y_gaussian[1], Y_gaussian[2] )
 
 
 #################################
@@ -77,7 +77,7 @@ data["Y"] = ( Y_bernoulli[0], Y_bernoulli[1], Y_bernoulli[2] )
 #################################
 
 # Define initial number of latent variables
-K = 15
+K = 10
 
 # Define model dimensionalities
 dim = {}
@@ -93,6 +93,7 @@ dim["K"] = K
 
 model_opts = {}
 model_opts['likelihood'] = ['bernoulli']* M
+# model_opts['likelihood'] = ['gaussian']* M
 model_opts['learnTheta'] = True
 model_opts['k'] = K
 
@@ -110,7 +111,8 @@ model_opts["initZ"] = { 'mean':"random", 'var':1., 'E':None, 'E2':None }
 model_opts["initAlpha"] = { 'a':[s.nan]*M, 'b':[s.nan]*M, 'E':[100.]*M }
 model_opts["initSW"] = { 'Theta':[0.5]*M,
                           'mean_S0':[0.]*M, 'var_S0':model_opts["initAlpha"]['E'],
-                          'mean_S1':[0]*M, 'var_S1':[1.]*M,
+                          # 'mean_S1':[0]*M, 'var_S1':[1.]*M,
+                          'mean_S1':["random"]*M, 'var_S1':[1.]*M,
                           'ES':[None]*M, 'EW_S0':[None]*M, 'EW_S1':[None]*M}
 # model_opts["initTau"] = { 'a':[1.,1.,None], 'b':[1.,1.,None], 'E':[100.,100.,None] }
 model_opts["initTau"] = { 'a':[s.nan]*M, 'b':[s.nan]*M, 'E':[100.]*M }
@@ -126,7 +128,9 @@ model_opts['covariates'] = None
 
 # Define schedule of updates
 # model_opts['schedule'] = ("SW","Z","Alpha","Tau","Theta","Y")
-model_opts['schedule'] = ("SW", "Z", "Clusters", "Theta", "Alpha", "Tau", 'Y')
+# model_opts['schedule'] = ("Y", "Z", "SW", "Clusters", "Theta", "Alpha", "Tau")
+# model_opts['schedule'] = ("Y", "SW", "Z", "Clusters", "Theta", "Alpha","Tau")
+model_opts['schedule'] = ("Y", "SW", "Z", "Clusters", "Theta", "Alpha","Tau")
 
 
 #############################

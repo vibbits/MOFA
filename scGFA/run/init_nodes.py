@@ -10,8 +10,8 @@ import sklearn.decomposition
 
 from scGFA.core.nodes import *
 from scGFA.core.multiview_nodes import *
-from scGFA.core.seeger_nodes import *
 from scGFA.core.sparse_updates import *
+from scGFA.core.seeger_nodes import *
 # from scGFA.core.nonsparse_updates import *
 
 
@@ -170,13 +170,17 @@ class init_sparse(initModel):
             elif self.lik[m] == "bernoulli":
                 # tmp = s.ones(self.D[m])*0.25
                 # tau_list[m] = Constant_Node(dim=(self.D[m],), value=tmp)
-                tmp = s.ones((self.N,self.D[m]))
+                tmp = 0.25*s.ones((self.N,self.D[m]))
                 tau_list[m] = Tau_Node_Jaakkola(dim=(self.N,self.D[m],), value=tmp)
+                # tau_list[m] = Constant_Node(dim=(self.N,self.D[m],), value=tmp)
             elif self.lik[m] == "binomial":
                 tmp = 0.25*s.amax(self.data["tot"][m],axis=0)
                 tau_list[m] = Constant_Node(dim=(self.D[m],), value=tmp)
             elif self.lik[m] == "gaussian":
-                tau_list[m] = Tau_Node(dim=(self.D[m],), pa=pa[m], pb=pb[m], qa=qa[m], qb=qb[m], qE=qE[m])
+                tmp = s.ones((self.N,self.D[m]))
+                # tau_list[m] = Tau_Node_Jaakkola(dim=(self.N,self.D[m],), value=tmp)
+                tau_list[m] = Constant_Node(dim=(self.N,self.D[m],), value=tmp)
+                # tau_list[m] = Tau_Node(dim=(self.D[m],), pa=pa[m], pb=pb[m], qa=qa[m], qb=qb[m], qE=qE[m])
         self.Tau = Multiview_Mixed_Node(self.M,*tau_list)
         self.nodes["Tau"] = self.Tau
 
@@ -189,7 +193,9 @@ class init_sparse(initModel):
             elif self.lik[m]=="poisson":
                 Y_list[m] = Poisson_PseudoY_Node(dim=(self.N,self.D[m]), obs=self.data[m], E=None)
             elif self.lik[m]=="bernoulli":
-                Y_list[m] = Bernoulli_PseudoY_Node(dim=(self.N,self.D[m]), obs=self.data[m], E=None)
+                # Y_list[m] = Bernoulli_PseudoY_Node(dim=(self.N,self.D[m]), obs=self.data[m], E=None)
+                # Y_list[m] = Bernoulli_PseudoY_Node_Jaakkola(dim=(self.N,self.D[m]), obs=self.data[m], E=None)
+                Y_list[m] = Bernoulli_PseudoY_Node_Jaakkola(dim=(self.N,self.D[m]), obs=self.data[m], E=self.data[m])
             elif self.lik[m]=="binomial":
                 Y_list[m] = Binomial_PseudoY_Node(dim=(self.N,self.D[m]), tot=data["tot"][m], obs=data["obs"][m], E=None)
         self.Y = Multiview_Mixed_Node(self.M, *Y_list)
@@ -234,8 +240,12 @@ class init_sparse(initModel):
             if self.lik[m]=="gaussian":
                 self.Y.nodes[m].addMarkovBlanket(Z=self.Z, SW=self.SW.nodes[m], Tau=self.Tau.nodes[m])
                 self.Tau.nodes[m].addMarkovBlanket(SW=self.SW.nodes[m], Z=self.Z, Y=self.Y.nodes[m])
+            elif self.lik[m]=="bernoulli":
+                self.Tau.nodes[m].addMarkovBlanket(W=self.SW.nodes[m], Z=self.Z)
+                self.Y.nodes[m].addMarkovBlanket(Z=self.Z, W=self.SW.nodes[m], kappa=self.Tau.nodes[m])
             else:
                 self.Y.nodes[m].addMarkovBlanket(Z=self.Z, W=self.SW.nodes[m], kappa=self.Tau.nodes[m])
+
 
 # Class to iniailise the traditional GFA model
 # Main differences: no element-wise sparsity and latent variables do not fully factorise

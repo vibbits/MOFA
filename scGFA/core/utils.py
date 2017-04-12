@@ -33,8 +33,8 @@ def sigmoid(X):
 	return np.divide(1.,1.+np.exp(-X))
 	# return 1./(1.+np.exp(-X))
 
-def lambdafn(self, X):
-	return s.tanh(X/2)/(4*X)
+def lambdafn(X):
+	return np.tanh(X/2.)/(4.*X)
 
 def ddot(d, mtx, left=True):
 	"""Multiply a full matrix by a diagonal matrix.
