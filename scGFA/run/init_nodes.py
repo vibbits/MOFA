@@ -241,7 +241,7 @@ class init_sparse(initModel):
                 self.Y.nodes[m].addMarkovBlanket(Z=self.Z, SW=self.SW.nodes[m], Tau=self.Tau.nodes[m])
                 self.Tau.nodes[m].addMarkovBlanket(SW=self.SW.nodes[m], Z=self.Z, Y=self.Y.nodes[m])
             elif self.lik[m]=="bernoulli":
-                self.Tau.nodes[m].addMarkovBlanket(W=self.SW.nodes[m], Z=self.Z)
+                self.Tau.nodes[m].addMarkovBlanket(W=self.SW.nodes[m], Z=self.Z, Y=self.Y.nodes[m])
                 self.Y.nodes[m].addMarkovBlanket(Z=self.Z, W=self.SW.nodes[m], kappa=self.Tau.nodes[m])
             else:
                 self.Y.nodes[m].addMarkovBlanket(Z=self.Z, W=self.SW.nodes[m], kappa=self.Tau.nodes[m])

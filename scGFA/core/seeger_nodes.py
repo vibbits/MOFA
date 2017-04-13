@@ -311,9 +311,12 @@ class Tau_Node_Jaakkola(Node):
             self.value = value
 
     def updateExpectations(self):
-        Z = self.markov_blanket["Z"].getExpectation()
-        W = self.markov_blanket["W"].getExpectation()
-        self.value = 2*lambdafn(s.dot(Z,W.T))
+        # Z = self.markov_blanket["Z"].getExpectation()
+        # W = self.markov_blanket["W"].getExpectation()
+        Zeta = self.markov_blanket["Y"].getParameters()["zeta"]
+        # Zeta = self.markov_blanket["Y"].getParameters()
+        # self.value = 2*lambdafn(s.dot(Z,W.T))
+        self.value = 2*lambdafn(Zeta)
 
     def getValue(self):
         return self.value
