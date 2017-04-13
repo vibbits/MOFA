@@ -15,9 +15,9 @@ import numpy.linalg  as linalg
 from scGFA.core.simulate import Simulate
 from scGFA.core.BayesNet import BayesNet
 from scGFA.core.multiview_nodes import *
-from scGFA.core.seeger_nodes import *
 from scGFA.core.nodes import *
 from scGFA.core.sparse_updates import *
+from scGFA.core.seeger_nodes import *
 from scGFA.core.utils import *
 from scGFA.run.run_utils import *
 
@@ -29,8 +29,8 @@ from scGFA.run.run_utils import *
 
 # Define dimensionalities
 M = 3
-N = 25
-D = s.asarray([100,100,100])
+N = 100
+D = s.asarray([500,500,500])
 K = 6
 
 
@@ -70,7 +70,7 @@ Y_bernoulli = tmp.generateData(W=data['W'], Z=data['Z'], Tau=data['tau'], Mu=dat
 
 data["Y"] = ( Y_bernoulli[0], Y_bernoulli[1], Y_bernoulli[2] )
 # data["Y"] = ( Y_gaussian[0], Y_gaussian[1], Y_gaussian[2] )
-
+# 
 
 #################################
 ## Initialise Bayesian Network ##
@@ -127,12 +127,9 @@ else:
 model_opts['covariates'] = None
 
 # Define schedule of updates
-# model_opts['schedule'] = ("SW","Z","Alpha","Tau","Theta","Y")
-# model_opts['schedule'] = ("Y", "Tau", "Z", "SW", "Clusters", "Theta", "Alpha")
-# model_opts['schedule'] = ("Y","Z","SW","Alpha")
-# model_opts['schedule'] = ("Y","Z","Alpha")
-# model_opts['schedule'] = ("Y","Tau","SW","Z","Theta","Alpha")
-model_opts['schedule'] = ("Y","Tau","Z","SW","Theta","Alpha")
+# model_opts['schedule'] = ("SW","Z","Alpha","Tau","Theta")
+# model_opts['schedule'] = ("Y","Tau","Z","SW","Theta","Alpha")
+model_opts['schedule'] = ("Y","Z","Clusters","SW","Theta","Alpha")
 
 
 #############################
@@ -144,15 +141,15 @@ train_opts['elbofreq'] = 1
 train_opts['maxiter'] = 1000
 # train_opts['tolerance'] = 1E-2
 train_opts['tolerance'] = 0.01
-train_opts['forceiter'] = True
+train_opts['forceiter'] = False
 train_opts['drop'] = { "by_norm":None, "by_pvar":None, "by_cor":None, "by_r2":None }
 train_opts['startdrop'] = 5
 train_opts['freqdrop'] = 1
 train_opts['savefreq'] = s.nan
 train_opts['savefolder'] = s.nan
 train_opts['verbosity'] = 2
-train_opts['trials'] = 1
-train_opts['cores'] = 1
+train_opts['trials'] = 4
+train_opts['cores'] = 4
 keep_best_run = False
 
 

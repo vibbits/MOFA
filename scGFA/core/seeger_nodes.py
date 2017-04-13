@@ -363,6 +363,9 @@ class Z_Node_Jaakkola(UnivariateGaussian_Unobserved_Variational_Node):
         P,Q = self.P.getParameters(), self.Q.getParameters()
         Pvar, Qmean, Qvar = P['var'], Q['mean'], Q['var']
 
+        Qvar_old = Qvar.copy()
+        Qmean_old = Qmean.copy()
+
         # Concatenate multi-view nodes to avoid looping over M (maybe its not a good idea)
         M = len(Y)
         Y = ma.concatenate([Y[m] for m in xrange(M)],axis=1)
@@ -370,23 +373,39 @@ class Z_Node_Jaakkola(UnivariateGaussian_Unobserved_Variational_Node):
         SWW = s.concatenate([SWtmp[m]["ESWW"] for m in xrange(M)],axis=0)
         tau = s.concatenate([tau[m] for m in xrange(M)],axis=1)
 
-        D = SW.shape[0]
-        K = SW.shape[1]
-        N = Y.shape[0]
-        for n in xrange(N):
-            for k in xrange(K):
-                # Variance
-                tmp = 0
-                for d in xrange(D):
-                    tmp += tau[n,d]*SWW[d,k]
-                Qvar[n,k] = 1./(tmp + (1/Pvar[n,k]))
+        ## slow non-vectorised form ##
+        # D = SW.shape[0]
+        # K = SW.shape[1]
+        # N = Y.shape[0]
+        # for n in xrange(N):
+        #     for k in xrange(K):
+        #         # Variance
+        #         tmp = 0
+        #         for d in xrange(D):
+        #             tmp += tau[n,d]*SWW[d,k]
+        #         Qvar[n,k] = 1./(tmp + (1/Pvar[n,k]))
 
-                # Mean
-                tmp = 0
-                for d in xrange(D):
-                    tmp += 1./Pvar[n,k]*Mu[0,k] + tau[n,d]*SW[d,k] * (Y[n,d] - s.sum(SW[d,s.arange(K)!=k]*Qmean[n,s.arange(K)!=k]))
-                Qmean[n,k] = Qvar[n,k]*tmp
+        #         # Mean
+        #         tmp = 0
+        #         for d in xrange(D):
+        #             tmp += 1./Pvar[n,k]*Mu[0,k] + tau[n,d]*SW[d,k] * (Y[n,d] - s.sum(SW[d,s.arange(K)!=k]*Qmean[n,s.arange(K)!=k]))
+        #         Qmean[n,k] = Qvar[n,k]*tmp
 
+        ## Fast vectorised form ##
+        # Update variance
+        Qvar_copy = Qvar.copy()
+        Qvar = 1./(1./Pvar + s.dot(tau,SWW))
+        # restoring values of the variance for the covariates
+        if any(self.covariates):
+            Qvar[:, self.covariates] = Qvar_copy[:, self.covariates]
+
+        # Update mean
+        latent_variables = self.getLvIndex() # excluding covariates from the list of latent variables
+
+        for k in latent_variables:
+            Qmean[:,k] = Qvar[:,k] * (  1./Pvar[:,k]*Mu[:,k] + ma.dot(
+                tau*(Y - s.dot( Qmean[:,s.arange(self.dim[1])!=k] , SW[:,s.arange(self.dim[1])!=k].T )),
+                SW[:,k])  )
 
         # Save updated parameters of the Q distribution
         self.Q.setParameters(mean=Qmean, var=Qvar)
@@ -448,48 +467,74 @@ class SW_Node_Jaakkola(BernoulliGaussian_Unobserved_Variational_Node):
 
         all_term1 = theta_lnE - theta_lnEInv
 
-        N = Y.shape[0]
-        D = self.dim[0]
-        K = self.dim[1]
-        for d in xrange(D):
-            for k in xrange(K):
-                term1 = all_term1[d,k]
-                term2 = 0.5*s.log(alpha[k])
-                tmp = 0
-                for n in xrange(N):
-                    if not s.isnan(Y.data[n,d]):
-                        tmp += ZZ[n,k]*tau[n,d]
-                term3 = 0.5*s.log(tmp + alpha[k])
-
-                term4 = 0
-                term4_tmp1 = 0
-                for n in xrange(N):
-                    if not s.isnan(Y.data[n,d]):
-                        term4_tmp1 += Y[n,d]*Z[n,k]*tau[n,d]
-                term4_tmp2 = 0
-                for j in xrange(K):
-                    if j!=k:
-                        for n in xrange(N):
-                            if not s.isnan(Y.data[n,d]): 
-                                term4_tmp2 += SW[d,j]*Z[n,k]*Z[n,j]*tau[n,d]
-
-                term4_tmp3 = alpha[k]
-                for n in xrange(N):
-                    if not s.isnan(Y.data[n,d]): 
-                        term4_tmp3 += tau[n,d]*ZZ[n,k]
-
-                term4 = 0.5*(term4_tmp1 - term4_tmp2)**2 / term4_tmp3
-
-                # Update S
-                Qtheta[d,k] = 1/(1+s.exp(-(term1+term2-term3+term4)))
-
-                # Update W
-                Qvar_S1[d,k] = 1/term4_tmp3
-                Qmean_S1[d,k] = Qvar_S1[d,k]*(term4_tmp1-term4_tmp2)
-
-                # Update expectations
-                SW[d,k] = Qtheta[d,k] * Qmean_S1[d,k]
+        ## slow non-vectorised way ##
+        # N = Y.shape[0]
+        # D = self.dim[0]
+        # K = self.dim[1]
+        # for d in xrange(D):
+        #     for k in xrange(K):
+        #         term1 = all_term1[d,k]
                 
+        #         term2 = 0.5*s.log(alpha[k])
+        #         tmp = 0
+        #         for n in xrange(N):
+        #             if not s.isnan(Y.data[n,d]):
+        #                 tmp += ZZ[n,k]*tau[n,d]
+        #         term3 = 0.5*s.log(tmp + alpha[k])
+        #         term4 = 0
+        #         term4_tmp1 = 0
+        #         for n in xrange(N):
+        #             if not s.isnan(Y.data[n,d]):
+        #                 term4_tmp1 += Y[n,d]*Z[n,k]*tau[n,d]
+        #         term4_tmp2 = 0
+        #         for j in xrange(K):
+        #             if j!=k:
+        #                 for n in xrange(N):
+        #                     if not s.isnan(Y.data[n,d]): 
+        #                         term4_tmp2 += SW[d,j]*Z[n,k]*Z[n,j]*tau[n,d]
+        #                         # term4_tmp2 += SW[d,j]
+
+        #         term4_tmp3 = alpha[k]
+        #         for n in xrange(N):
+        #             if not s.isnan(Y.data[n,d]): 
+        #                 term4_tmp3 += tau[n,d]*ZZ[n,k]
+
+        #         term4 = 0.5*(term4_tmp1 - term4_tmp2)**2 / term4_tmp3
+
+        #         # Update S
+        #         Qtheta[d,k] = 1/(1+s.exp(-(term1+term2-term3+term4)))
+
+        #         # Update W
+        #         Qvar_S1[d,k] = 1/term4_tmp3
+        #         Qmean_S1[d,k] = Qvar_S1[d,k]*(term4_tmp1-term4_tmp2)
+
+        #         # Update expectations
+        #         SW[d,k] = Qtheta[d,k] * Qmean_S1[d,k]
+
+        ## fast vectorised way ##
+        for k in xrange(self.dim[1]):
+
+            # Calculate intermediate steps
+            term1 = (theta_lnE-theta_lnEInv)[:,k]
+            term2 = 0.5*s.log(alpha[k])
+            term3 = 0.5*s.log(ma.dot(ZZ[:,k],tau) + alpha[k])
+            term4_tmp1 = ma.dot((tau*Y).T,Z[:,k]).data
+            tmp = tau * s.dot((Z[:,k]*Z[:,s.arange(self.dim[1])!=k].T).T, SW[:,s.arange(self.dim[1])!=k].T)
+            term4_tmp2 = ma.array(tmp, mask=ma.getmask(Y)).sum(axis=0)
+            term4_tmp3 = ma.dot(ZZ[:,k].T,tau) + alpha[k]
+            term4 = 0.5*s.divide((term4_tmp1-term4_tmp2)**2,term4_tmp3)
+
+            # Update S
+            # NOTE there could be some precision issues in S --> loads of 1s in result
+            Qtheta[:,k] = 1/(1+s.exp(-(term1+term2-term3+term4)))
+
+            # Update W
+            Qvar_S1[:,k] = s.divide(1,term4_tmp3)
+            Qmean_S1[:,k] = Qvar_S1[:,k]*(term4_tmp1-term4_tmp2)
+
+            # Update Expectations for the next iteration
+            SW[:,k] = Qtheta[:,k] * Qmean_S1[:,k]
+
         # Save updated parameters of the Q distribution
         self.Q.setParameters(mean_S0=s.zeros((self.D,self.dim[1])), var_S0=s.repeat(1/alpha[None,:],self.D,0),
                              mean_S1=Qmean_S1, var_S1=Qvar_S1, theta=Qtheta )
@@ -529,53 +574,53 @@ class SW_Node_Jaakkola(BernoulliGaussian_Unobserved_Variational_Node):
 
 
 
-class Y_Node(Constant_Variational_Node):
-    def __init__(self, dim, value):
-        Constant_Variational_Node.__init__(self, dim, value)
+# class Y_Node(Constant_Variational_Node):
+#     def __init__(self, dim, value):
+#         Constant_Variational_Node.__init__(self, dim, value)
 
-        # Create a boolean mask of the data to hidden missing values
-        if type(self.value) != ma.MaskedArray:
-            self.mask()
+#         # Create a boolean mask of the data to hidden missing values
+#         if type(self.value) != ma.MaskedArray:
+#             self.mask()
 
-        # Precompute some terms
-        self.precompute()
+#         # Precompute some terms
+#         self.precompute()
 
-    def precompute(self):
-        # Precompute some terms to speed up the calculations
-        # self.N = self.dim[0]
-        self.N = self.dim[0] - ma.getmask(self.value).sum(axis=0)
-        self.D = self.dim[1]
-        # self.likconst = -0.5*self.N*self.D*s.log(2*s.pi)
-        self.likconst = -0.5*s.sum(self.N)*s.log(2.*s.pi)
+#     def precompute(self):
+#         # Precompute some terms to speed up the calculations
+#         # self.N = self.dim[0]
+#         self.N = self.dim[0] - ma.getmask(self.value).sum(axis=0)
+#         self.D = self.dim[1]
+#         # self.likconst = -0.5*self.N*self.D*s.log(2*s.pi)
+#         self.likconst = -0.5*s.sum(self.N)*s.log(2.*s.pi)
 
-    def mask(self):
-        # Mask the observations if they have missing values
-        self.value = ma.masked_invalid(self.value)
+#     def mask(self):
+#         # Mask the observations if they have missing values
+#         self.value = ma.masked_invalid(self.value)
 
-    def calculateELBO(self):
-        # tauQ_param = self.markov_blanket["Tau"].getParameters("Q")
-        # tauP_param = self.markov_blanket["Tau"].getParameters("P")
-        # tau_exp = self.markov_blanket["Tau"].getExpectations()
-        # lik = self.likconst + 0.5*s.sum(self.N*(tau_exp["lnE"])) - s.dot(tau_exp["E"],tauQ_param["b"]-tauP_param["b"])
-        # return lik
+#     def calculateELBO(self):
+#         # tauQ_param = self.markov_blanket["Tau"].getParameters("Q")
+#         # tauP_param = self.markov_blanket["Tau"].getParameters("P")
+#         # tau_exp = self.markov_blanket["Tau"].getExpectations()
+#         # lik = self.likconst + 0.5*s.sum(self.N*(tau_exp["lnE"])) - s.dot(tau_exp["E"],tauQ_param["b"]-tauP_param["b"])
+#         # return lik
 
-        tau = self.markov_blanket["Tau"].getExpectations()
-        SW = self.markov_blanket["SW"].getExpectations()
-        Z = self.markov_blanket["Z"].getExpectations()
-        Y = self.value.data
+#         tau = self.markov_blanket["Tau"].getExpectations()
+#         SW = self.markov_blanket["SW"].getExpectations()
+#         Z = self.markov_blanket["Z"].getExpectations()
+#         Y = self.value.data
 
-        N = self.dim[0]
-        D = self.dim[1]
-        K = SW["ES"].shape[1]
+#         N = self.dim[0]
+#         D = self.dim[1]
+#         K = SW["ES"].shape[1]
 
-        lik = 0
-        for n in xrange(N):
-            for d in xrange(D):
-                tmp = 0
-                if not s.isnan(Y[n,d]):
-                    for k in xrange(K):
-                        tmp += SW["ES"][d,k]*SW["EWW"][d,k]*Z["E2"][n,k]
-                        for j in xrange(k+1,K):
-                            tmp += 2*SW["E"][d,k]*Z["E"][n,k] * SW["E"][d,j]*Z["E"][n,j]
-                    lik += -0.5*s.log(2.*s.pi) + 0.5*tau["lnE"][n,d] - 0.5*tau["E"][n,d]*(Y[n,d]**2 - 2*Y[n,d]*s.dot(SW["E"][d,:],Z["E"][n,:]) + tmp)
-        return lik
+#         lik = 0
+#         for n in xrange(N):
+#             for d in xrange(D):
+#                 tmp = 0
+#                 if not s.isnan(Y[n,d]):
+#                     for k in xrange(K):
+#                         tmp += SW["ES"][d,k]*SW["EWW"][d,k]*Z["E2"][n,k]
+#                         for j in xrange(k+1,K):
+#                             tmp += 2*SW["E"][d,k]*Z["E"][n,k] * SW["E"][d,j]*Z["E"][n,j]
+#                     lik += -0.5*s.log(2.*s.pi) + 0.5*tau["lnE"][n,d] - 0.5*tau["E"][n,d]*(Y[n,d]**2 - 2*Y[n,d]*s.dot(SW["E"][d,:],Z["E"][n,:]) + tmp)
+#         return lik

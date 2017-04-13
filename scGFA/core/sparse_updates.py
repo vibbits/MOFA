@@ -120,17 +120,10 @@ class Z_Node(UnivariateGaussian_Unobserved_Variational_Node):
         SWW = s.concatenate([SWtmp[m]["ESWW"] for m in xrange(M)],axis=0)
         tau = s.concatenate([tau[m] for m in xrange(M)],axis=0)
 
-        print tau.shape
-
         ## Update variance
         Qvar_copy = Qvar.copy()
         tmp = (tau*SWW.T).sum(axis=1)
-        print SWW.T.shape
         tmp = s.repeat(tmp[None,:],self.N,0)
-
-
-        print tmp.shape
-        exit()
         tmp += 1./Pvar  # adding the prior precision to the updated precision
         Qvar = 1./tmp
 

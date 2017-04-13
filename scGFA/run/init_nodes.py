@@ -91,7 +91,8 @@ class init_sparse(initModel):
             idx_covariates = None
 
         # Initialise the node
-        self.Z = Z_Node_Jaakkola(dim=(self.N,self.K),
+        # self.Z = Z_Node_Jaakkola(dim=(self.N,self.K),
+        self.Z = Z_Node(dim=(self.N,self.K),
                         pmean=s.ones((self.N,self.K))*pmean,
                         pvar=s.ones((self.N,self.K))*pvar,
                         qmean=s.ones((self.N,self.K))*qmean,
@@ -120,7 +121,8 @@ class init_sparse(initModel):
                 print "Wrong initialisation for SW"
                 exit()
 
-            SW_list[m] = SW_Node_Jaakkola(
+            # SW_list[m] = SW_Node_Jaakkola(
+            SW_list[m] = SW_Node(
                 dim=(self.D[m],self.K),
 
                 ptheta=s.ones((self.D[m],self.K))*ptheta[m],
@@ -168,19 +170,17 @@ class init_sparse(initModel):
                 tmp = 0.25 + 0.17*s.amax(self.data[m],axis=0)
                 tau_list[m] = Constant_Node(dim=(self.D[m],), value=tmp)
             elif self.lik[m] == "bernoulli":
-                # tmp = s.ones(self.D[m])*0.25
-                # tau_list[m] = Constant_Node(dim=(self.D[m],), value=tmp)
-                tmp = 0.25*s.ones((self.N,self.D[m]))
-                tau_list[m] = Tau_Node_Jaakkola(dim=(self.N,self.D[m],), value=tmp)
-                # tau_list[m] = Constant_Node(dim=(self.N,self.D[m],), value=tmp)
+                tmp = s.ones(self.D[m])*0.25
+                tau_list[m] = Constant_Node(dim=(self.D[m],), value=tmp)
+                # tmp = 0.25*s.ones((self.N,self.D[m]))
+                # tau_list[m] = Tau_Node_Jaakkola(dim=(self.N,self.D[m],), value=tmp)
             elif self.lik[m] == "binomial":
                 tmp = 0.25*s.amax(self.data["tot"][m],axis=0)
                 tau_list[m] = Constant_Node(dim=(self.D[m],), value=tmp)
             elif self.lik[m] == "gaussian":
-                tmp = s.ones((self.N,self.D[m]))
-                # tau_list[m] = Tau_Node_Jaakkola(dim=(self.N,self.D[m],), value=tmp)
-                tau_list[m] = Constant_Node(dim=(self.N,self.D[m],), value=tmp)
-                # tau_list[m] = Tau_Node(dim=(self.D[m],), pa=pa[m], pb=pb[m], qa=qa[m], qb=qb[m], qE=qE[m])
+                # tmp = s.ones((self.N,self.D[m]))
+                # tau_list[m] = Constant_Node(dim=(self.N,self.D[m],), value=tmp)
+                tau_list[m] = Tau_Node(dim=(self.D[m],), pa=pa[m], pb=pb[m], qa=qa[m], qb=qb[m], qE=qE[m])
         self.Tau = Multiview_Mixed_Node(self.M,*tau_list)
         self.nodes["Tau"] = self.Tau
 
@@ -193,9 +193,9 @@ class init_sparse(initModel):
             elif self.lik[m]=="poisson":
                 Y_list[m] = Poisson_PseudoY_Node(dim=(self.N,self.D[m]), obs=self.data[m], E=None)
             elif self.lik[m]=="bernoulli":
-                # Y_list[m] = Bernoulli_PseudoY_Node(dim=(self.N,self.D[m]), obs=self.data[m], E=None)
+                Y_list[m] = Bernoulli_PseudoY_Node(dim=(self.N,self.D[m]), obs=self.data[m], E=None)
                 # Y_list[m] = Bernoulli_PseudoY_Node_Jaakkola(dim=(self.N,self.D[m]), obs=self.data[m], E=None)
-                Y_list[m] = Bernoulli_PseudoY_Node_Jaakkola(dim=(self.N,self.D[m]), obs=self.data[m], E=self.data[m])
+                # Y_list[m] = Bernoulli_PseudoY_Node_Jaakkola(dim=(self.N,self.D[m]), obs=self.data[m], E=self.data[m])
             elif self.lik[m]=="binomial":
                 Y_list[m] = Binomial_PseudoY_Node(dim=(self.N,self.D[m]), tot=data["tot"][m], obs=data["obs"][m], E=None)
         self.Y = Multiview_Mixed_Node(self.M, *Y_list)
@@ -240,10 +240,10 @@ class init_sparse(initModel):
                 self.Y.nodes[m].addMarkovBlanket(Z=self.Z, SW=self.SW.nodes[m], Tau=self.Tau.nodes[m])
                 self.Tau.nodes[m].addMarkovBlanket(SW=self.SW.nodes[m], Z=self.Z, Y=self.Y.nodes[m])
             elif self.lik[m]=="bernoulli":
-                self.Tau.nodes[m].addMarkovBlanket(W=self.SW.nodes[m], Z=self.Z, Y=self.Y.nodes[m])
-                self.Y.nodes[m].addMarkovBlanket(Z=self.Z, W=self.SW.nodes[m], kappa=self.Tau.nodes[m])
+                self.Tau.nodes[m].addMarkovBlanket(W=self.SW.nodes[m], Z=self.Z, Y=self.Y.nodes[m]) # Only required for jakkola
+                self.Y.nodes[m].addMarkovBlanket(Z=self.Z, W=self.SW.nodes[m])
             else:
-                self.Y.nodes[m].addMarkovBlanket(Z=self.Z, W=self.SW.nodes[m], kappa=self.Tau.nodes[m])
+                self.Y.nodes[m].addMarkovBlanket(Z=self.Z, W=self.SW.nodes[m])
 
 
 # Class to iniailise the traditional GFA model
