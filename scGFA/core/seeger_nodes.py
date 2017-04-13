@@ -286,10 +286,12 @@ class Bernoulli_PseudoY_Node_Jaakkola(PseudoY):
     def updateExpectations(self):
         # Update the pseudodata
         self.E = (2.*self.obs - 1.)/(4.*lambdafn(self.Zeta))
+        # self.E = self.Zeta - 4.*(sigmoid(self.Zeta) - self.obs)  
 
     def updateParameters(self):
         Z = self.markov_blanket["Z"].getExpectation()
         W = self.markov_blanket["W"].getExpectation()
+        # self.Zeta = s.dot(Z,W.T)
         ZZ = self.markov_blanket["Z"].getExpectations()["E2"]
         WW = self.markov_blanket["W"].getExpectations()["ESWW"]
         self.Zeta = s.sqrt( s.square(Z.dot(W.T)) - s.dot(s.square(Z),s.square(W.T)) + s.dot(ZZ, WW.T) )
@@ -313,10 +315,10 @@ class Tau_Node_Jaakkola(Node):
     def updateExpectations(self):
         # Z = self.markov_blanket["Z"].getExpectation()
         # W = self.markov_blanket["W"].getExpectation()
-        Zeta = self.markov_blanket["Y"].getParameters()["zeta"]
-        # Zeta = self.markov_blanket["Y"].getParameters()
         # self.value = 2*lambdafn(s.dot(Z,W.T))
+        Zeta = self.markov_blanket["Y"].getParameters()["zeta"]
         self.value = 2*lambdafn(Zeta)
+        # self.value = s.ones(self.dim)*0.25
 
     def getValue(self):
         return self.value
@@ -368,7 +370,6 @@ class Z_Node_Jaakkola(UnivariateGaussian_Unobserved_Variational_Node):
         SWW = s.concatenate([SWtmp[m]["ESWW"] for m in xrange(M)],axis=0)
         tau = s.concatenate([tau[m] for m in xrange(M)],axis=1)
 
-
         D = SW.shape[0]
         K = SW.shape[1]
         N = Y.shape[0]
@@ -378,12 +379,14 @@ class Z_Node_Jaakkola(UnivariateGaussian_Unobserved_Variational_Node):
                 tmp = 0
                 for d in xrange(D):
                     tmp += tau[n,d]*SWW[d,k]
-                Qvar[n,k] = 1/(tmp + 1)
+                Qvar[n,k] = 1./(tmp + (1/Pvar[n,k]))
+
                 # Mean
                 tmp = 0
                 for d in xrange(D):
-                    tmp += tau[n,d]*SW[d,k] * (Y[n,d] - s.sum(SW[d,s.arange(K)!=k]*Qmean[n,s.arange(K)!=k]))
+                    tmp += 1./Pvar[n,k]*Mu[0,k] + tau[n,d]*SW[d,k] * (Y[n,d] - s.sum(SW[d,s.arange(K)!=k]*Qmean[n,s.arange(K)!=k]))
                 Qmean[n,k] = Qvar[n,k]*tmp
+
 
         # Save updated parameters of the Q distribution
         self.Q.setParameters(mean=Qmean, var=Qvar)
@@ -436,8 +439,6 @@ class SW_Node_Jaakkola(BernoulliGaussian_Unobserved_Variational_Node):
         Q = self.Q.getParameters()
         Qmean_S1, Qvar_S1, Qtheta = Q['mean_S1'].copy(), Q['var_S1'].copy(), Q['theta'].copy()
 
-        print tau
-        
         thetatmp = self.markov_blanket['Theta'].getExpectations() # TODO make general in mixed nodw
         theta_lnE, theta_lnEInv  = thetatmp['lnE'], thetatmp['lnEInv']  
         if theta_lnE.shape != Qmean_S1.shape:
@@ -456,7 +457,8 @@ class SW_Node_Jaakkola(BernoulliGaussian_Unobserved_Variational_Node):
                 term2 = 0.5*s.log(alpha[k])
                 tmp = 0
                 for n in xrange(N):
-                    tmp += ZZ[n,k]*tau[n,d]
+                    if not s.isnan(Y.data[n,d]):
+                        tmp += ZZ[n,k]*tau[n,d]
                 term3 = 0.5*s.log(tmp + alpha[k])
 
                 term4 = 0
@@ -482,8 +484,8 @@ class SW_Node_Jaakkola(BernoulliGaussian_Unobserved_Variational_Node):
                 Qtheta[d,k] = 1/(1+s.exp(-(term1+term2-term3+term4)))
 
                 # Update W
-                Qmean_S1[d,k] = Qvar_S1[d,k]*(term4_tmp1 - term4_tmp2)
                 Qvar_S1[d,k] = 1/term4_tmp3
+                Qmean_S1[d,k] = Qvar_S1[d,k]*(term4_tmp1-term4_tmp2)
 
                 # Update expectations
                 SW[d,k] = Qtheta[d,k] * Qmean_S1[d,k]

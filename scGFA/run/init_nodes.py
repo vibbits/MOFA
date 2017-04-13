@@ -220,8 +220,7 @@ class init_sparse(initModel):
     def initClusters(self, clusters=None, pmean=0, pvar=1, qmean=0, qvar=1):
         if clusters is None:
             clusters = s.zeros(self.N, int)
-        self.Clusters = Cluster_Node_Gaussian(pmean, pvar, qmean,
-        					  qvar, clusters, self.K)
+        self.Clusters = Cluster_Node_Gaussian(pmean, pvar, qmean, qvar, clusters, self.K)
         self.nodes['Clusters'] = self.Clusters
 
     def initExpectations(self, *nodes):

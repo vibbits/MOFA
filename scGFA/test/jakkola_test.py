@@ -128,9 +128,11 @@ model_opts['covariates'] = None
 
 # Define schedule of updates
 # model_opts['schedule'] = ("SW","Z","Alpha","Tau","Theta","Y")
-# model_opts['schedule'] = ("Y", "Z", "SW", "Clusters", "Theta", "Alpha", "Tau")
-# model_opts['schedule'] = ("Y", "SW", "Z", "Clusters", "Theta", "Alpha","Tau")
-model_opts['schedule'] = ("Y", "SW", "Z", "Clusters", "Theta", "Alpha","Tau")
+# model_opts['schedule'] = ("Y", "Tau", "Z", "SW", "Clusters", "Theta", "Alpha")
+# model_opts['schedule'] = ("Y","Z","SW","Alpha")
+# model_opts['schedule'] = ("Y","Z","Alpha")
+# model_opts['schedule'] = ("Y","Tau","SW","Z","Theta","Alpha")
+model_opts['schedule'] = ("Y","Tau","Z","SW","Theta","Alpha")
 
 
 #############################
