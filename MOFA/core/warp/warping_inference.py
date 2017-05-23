@@ -19,7 +19,7 @@ class Warping_inference(object):
     z = f(x)
     """
 
-    def __init__(self,func_type='tanh',I=3):
+    def __init__(self,func_type='tanh',I=3,params=None):
         self.options = dict()
         self.options['maxiter'] = 50
         self.options['maxfun'] = 50
@@ -27,7 +27,7 @@ class Warping_inference(object):
         self.method = 'L-BFGS-B'
 #        self.method = 'TNC'               
         
-        self.entity = Warping_functions(func_type,I)
+        self.entity = Warping_functions(func_type,I,params)
         
     def f(self,x,i_not=-1):
         """

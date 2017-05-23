@@ -338,7 +338,7 @@ class Bernoulli_PseudoY_Jaakkola(PseudoY_Seeger):
 class Warped_PseudoY_Node(PseudoY):
     def __init__(self, dim, obs, params=None, func_type='tanh', I=3, E=None):
         PseudoY.__init__(self, dim=dim, obs=obs, params=params, E=E)
-        self.warping = Warping_inference(func_type,I)  
+        self.warping = Warping_inference(func_type,I,params=None)  
 
     def updateParameters(self):
         tau = self.markov_blanket["Tau"].getExpectation()  
@@ -360,6 +360,7 @@ class Warped_PseudoY_Node(PseudoY):
             'c':self.warping.entity.param['c']
         } 
 
+
     def updateExpectations(self):
         self.E = self.warping.f(self.obs, i_not=-1) 
 
@@ -369,3 +370,12 @@ class Warped_PseudoY_Node(PseudoY):
         lb = s.sum(s.log(self.warping.f_prime(self.obs, i_not=-1) ) )
         # lb = numpy.nansum(self.mat_mask* (numpy.log(self.warping.f_prime(self.obs,i_not=-1) ) ) )
         return lb
+
+    # TODO: relocate this function to where suitable.
+    def predict(Y_hat,tau_hat,params):
+        assert len(params['a']) == len(params['b']) == len(params['c'])
+        warping = Warping_inference(params['func_type'],len(params['a']),params=params)  
+        return warping.f_inv_gauss_hermite(Y_hat,tau_hat)
+
+        
+

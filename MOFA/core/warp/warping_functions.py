@@ -9,26 +9,34 @@ import factor_functions
 
 class Warping_functions(object):
     ''' Type of the warping functions e.g. tanh. '''
-    def __init__(self,func_type,I):
-        self.I = I
+    def __init__(self,func_type,I,params):
         self.factor_ft_type = dict()
         self.factor_ft_type['a'] = factor_functions.Log_exp
         self.factor_ft_type['b'] = factor_functions.Log_exp
         self.factor_ft_type['c'] = factor_functions.Identity
-        self.param = dict()
-        self.param['a'] = [[]] * self.I
-        self.param['b'] = [[]] * self.I
-        self.param['c'] = [[]] * self.I
-        for i in xrange(self.I):
-            self.param['a'][i] = self.factor_ft_type['a'](numpy.random.random())
-            self.param['b'][i] = self.factor_ft_type['b'](numpy.random.random())
-            self.param['c'][i] = self.factor_ft_type['c'](numpy.random.random())
         if func_type == 'tanh':
             self.func_type = _Tanh
-            self.func_type_str = 'tanh'
         elif func_type == 'logistic':
             self.func_type = _Sigmoid
-            self.func_type_str = 'logistic'
+        self.I = I
+
+        if params is None:
+            self.param = dict()
+            self.param['a'] = [[]] * self.I
+            self.param['b'] = [[]] * self.I
+            self.param['c'] = [[]] * self.I
+            for i in xrange(self.I):
+                self.param['a'][i] = self.factor_ft_type['a'](numpy.random.random())
+                self.param['b'][i] = self.factor_ft_type['b'](numpy.random.random())
+                self.param['c'][i] = self.factor_ft_type['c'](numpy.random.random())
+        else:
+            self.param = dict()
+            self.param['a'] = params['a']
+            self.param['b'] = params['b']
+            self.param['c'] = params['c']
+
+
+
 
 
     def f(self,x,i,partial = None):
