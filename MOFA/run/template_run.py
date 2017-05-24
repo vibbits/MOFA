@@ -64,7 +64,7 @@ data_opts['rownames'] = 0
 data_opts['colnames'] = 0
 # data_opts['rownames'] = None
 # data_opts['colnames'] = None
-data_opts['delimiter'] = " "
+data_opts['delimiter'] = ","
 
 M = len(data_opts['input_files'])
 
