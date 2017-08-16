@@ -77,7 +77,8 @@ FactorsCorPlot <- function(object, method="pearson", use = "complete.obs", ...) 
 #' @param title fill this
 #' @details asd
 #' @return fill this
-#' @import ggplot2 dplyr tidyr
+#' @import ggplot2 
+#' @importFrom dplyr %>%
 #' @export
 FactorsScatterPlot <- function(object, z_order=NULL, title="") {
   # THIS HAS TO BE FINISHED, WE SHOULDNT USE PIPES OR DPLYR 
@@ -115,9 +116,6 @@ FactorsScatterPlot <- function(object, z_order=NULL, title="") {
 #' @details fill
 #' @return Correlation matrix of latent factors versus principal components
 #' @references fill this
-#' @import corrplot pcaMethods
-#' @importFrom stats cor
-#' @importFrom plyr rbind.fill.matrix
 #' @export
 
 CorrplotLFvsPC <- function(model, views="all", noPCs=5, method="svd") {
@@ -150,7 +148,7 @@ CorrplotLFvsPC <- function(model, views="all", noPCs=5, method="svd") {
   # matPCs <- do.call(cbind,listPCs)
   matPCs <- t(plyr::rbind.fill.matrix(listPCs))
   colnames(matPCs) <- unlist(lapply(listPCs,rownames))
-  corrmatrix <- cor(matPCs,Z, use="complete.obs")
+  corrmatrix <- stats::cor(matPCs,Z, use="complete.obs")
   
   # Plot correlation matrix
   # corrplot::corrplot(t(corrmatrix), order="original", title="", tl.col="black", mar=c(1,1,3,1))

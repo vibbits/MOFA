@@ -6,7 +6,6 @@
 
 #' @title detectPassengers: 
 #' @name detectPassengers
-#' @description 
 #' @param object a MOFA model
 #' @param views all
 #' @param factors all

@@ -13,6 +13,7 @@
 #' @return fill this
 #' @references fill this
 #' @import ggplot2
+#' @importFrom grDevices terrain.colors
 #' @export
 histPlot <- function(object, factor, xlabel = NULL, fill=NULL, name_fill="", alpha=0.6, binwidth=NULL, showNA=F) {
   
@@ -75,6 +76,7 @@ histPlot <- function(object, factor, xlabel = NULL, fill=NULL, name_fill="", alp
 #' @details asd
 #' @return fill this
 #' @references fill this
+#' @importFrom grDevices terrain.colors
 #' @export
 beeswarmPlot <- function(object, factors, color_by = NULL, color_name="", colorLegend=T, showNA=F) {
   

@@ -1,0 +1,2 @@
+#' @importFrom grDevices hcl
+NULL
