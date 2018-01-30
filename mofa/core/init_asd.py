@@ -362,4 +362,12 @@ def entry_point():
 
   # Go!
   # runSingleTrial(data, data_opts, model_opts, train_opts, seed=None)
+  # runMultipleTrials(data, data_opts, model_opts, train_opts, keep_best_run, args.seed)
+
+  ## NEW
+  t1 = time()
   runMultipleTrials(data, data_opts, model_opts, train_opts, keep_best_run, args.seed)
+  t2 = time()-t1
+
+  f.write("K=%d,time=%.2f\n" % (args.factors,t2) )
+  f.close()
