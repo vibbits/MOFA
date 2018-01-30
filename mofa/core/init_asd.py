@@ -371,6 +371,6 @@ def entry_point():
 
   # import os
   # os.remove(args.outFile)
-  f = open(args.outFile,"w")
+  f = open(args.outFile,"a")
   f.write("%.2f\n" % (t2) )
   f.close()
