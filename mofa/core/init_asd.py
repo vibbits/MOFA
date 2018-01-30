@@ -369,5 +369,8 @@ def entry_point():
   runMultipleTrials(data, data_opts, model_opts, train_opts, keep_best_run, args.seed)
   t2 = time()-t1
 
-  f.write("K=%d,time=%.2f\n" % (args.factors,t2) )
+  import os
+  os.remove(args.outFile)
+  f = open(args.outFile,"w")
+  f.write("%.2f\n" % (t2) )
   f.close()
