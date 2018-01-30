@@ -198,9 +198,9 @@ def runMultipleTrials(data, data_opts, model_opts, train_opts, keep_best_run, se
     ## Save results ##
     ##################
     
-    sample_names = data[0].index.tolist()
-    feature_names = [  data[m].columns.values.tolist() for m in range(len(data)) ]
-    for t in range(len(save_models)):
-        print("Saving model %d in %s...\n" % (t,outfiles[t]))
-        saveModel(save_models[t], outfile=outfiles[t], view_names=data_opts['view_names'],
-            sample_names=sample_names, feature_names=feature_names, train_opts=train_opts, model_opts=model_opts)
+    # sample_names = data[0].index.tolist()
+    # feature_names = [  data[m].columns.values.tolist() for m in range(len(data)) ]
+    # for t in range(len(save_models)):
+    #     print("Saving model %d in %s...\n" % (t,outfiles[t]))
+    #     saveModel(save_models[t], outfile=outfiles[t], view_names=data_opts['view_names'],
+    #         sample_names=sample_names, feature_names=feature_names, train_opts=train_opts, model_opts=model_opts)
