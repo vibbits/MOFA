@@ -195,14 +195,14 @@ getImputedData <- function(object, views = "all", features = "all", as.data.fram
 #' @rdname getCovariates
 #' @name getCovariates
 #' @title Extract covariates from the model
-#' @description (NOT PROPERLY IMPLEMENTED YET) this function extracts the covariates defined by the user. 
+#' @description This function extracts the covariates defined by the user. 
 #' Note that (for now) the model can be run with known covariates only if they are stored in the colData of the MultiAssayExperiment input object. See \code{\link{createMOFAobject}}.
 #' @param object a \code{\link{MOFAmodel}} object.
 #' @param names names of the covariates
 #' @export
 #' 
 getCovariates <- function(object, names) {
-  stop("Not implemented")
+  # stop("Not implemented")
   
   # Sanity checks
   if (class(object) != "MOFAmodel") stop("'object' has to be an instance of MOFAmodel")  
