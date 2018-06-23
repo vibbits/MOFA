@@ -2,16 +2,13 @@
 % Please edit documentation in R/prepareMOFA.R
 \name{prepareMOFA}
 \alias{prepareMOFA}
-\title{prepare a MOFA model for training}
+\title{prepare a MOFAobject for training}
 \usage{
-prepareMOFA(object, DirOptions, DataOptions = NULL, ModelOptions = NULL,
+prepareMOFA(object, DataOptions = NULL, ModelOptions = NULL,
   TrainOptions = NULL)
 }
 \arguments{
 \item{object}{an untrained \code{\link{MOFAmodel}}}
-
-\item{DirOptions}{list with Input/Output options, which must contain a 'dataDir' element where temporary text files will be stored 
-and an 'outFile' with hdf5 extension where the final model will be stored.}
 
 \item{DataOptions}{list of DataOptions (see \code{\link{getDefaultDataOptions}} details). 
 If NULL, default data options are used.}
@@ -23,31 +20,9 @@ If NULL, default model options are used.}
 If NULL, default training options are used.}
 }
 \value{
-Returns an untrained \code{\link{MOFAmodel}} with specified data, model and training options
+Returns an untrained \code{\link{MOFAmodel}} with specified data, model and training options.
+Next step is to train the model with \code{\link{runMOFA}}
 }
 \description{
-Function to prepare a \code{\link{MOFAmodel}} object for training. It requires defining data, model and training options.
-}
-\examples{
-# Generate a random data set
-gaussian_data <- matrix(rnorm(100,mean=0,sd=1),10,10)
-poisson_data <- matrix(rpois(100, lambda=1),10,10)
-data <- list("gaussian_view"=gaussian_data, "poisson_view"=poisson_data)
-# Create a MOFA object
-MOFAobject <- createMOFA(data)
-# Define I/O options
-DirOptions <- list("dataDir" = tempdir(), "outFile" = tempfile())
-# Define Data Options
-DataOptions <- getDefaultDataOptions()
-# Define Model Options
-ModelOptions <- getDefaultModelOptions(MOFAobject)
-ModelOptions$likelihood <- c("gaussian","poisson")
-ModelOptions <- getDefaultModelOptions(MOFAobject)
-# Define Training Options
-TrainOptions <- getDefaultTrainOptions()
-TrainOptions$maxiter <- 100
-# Prepare MOFA object for training
-MOFAobject <- prepareMOFA(MOFAobject, DirOptions, DataOptions, ModelOptions, TrainOptions)
-# train a MOFA model
-MOFAobject <- runMOFA(MOFAobject, DirOptions)
+Function to prepare a \code{\link{MOFAmodel}} object for training. Here, data, input/output option are specified and data, model and training options can be set.
 }
